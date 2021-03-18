@@ -15,6 +15,11 @@ WORKERS = prometheus_client.Gauge(
     'Number of alive workers',
     ['flower', 'status']
 )
+TASKS_WORKER = prometheus_client.Gauge(
+    'celery_tasks_by_worker',
+    'Number of tasks per worker',
+    ['flower', 'worker', 'status']
+)
 
 
 class MonitorThread(threading.Thread):
@@ -80,6 +85,9 @@ class WorkerMonitorThread(MonitorThread):
         for metric in WORKERS.collect():
             for sample in metric.samples:
                 WORKERS.labels(**sample[1]).set(0)
+        for metric in TASKS_WORKER.collect():
+            for sample in metric.samples:
+                TASKS_WORKER.labels(**sample[1]).set(0)
 
     @property
     def endpoint(self):
@@ -88,9 +96,21 @@ class WorkerMonitorThread(MonitorThread):
     def convert_data_to_prometheus(self, data):
         online, offline = 0, 0
         for w_info in data.get('data', []):
+            common = {'flower': self.flower_host, 'worker': w_info['hostname']}
+
+            TASKS_WORKER.labels(**common, status='received').set(w_info.get('task-received', 0))
+            TASKS_WORKER.labels(**common, status='started').set(w_info.get('task-started', 0))
+            TASKS_WORKER.labels(**common, status='failed').set(w_info.get('task-failed', 0))
+            TASKS_WORKER.labels(**common, status='retried').set(w_info.get('task-retried', 0))
+            TASKS_WORKER.labels(**common, status='succeeded').set(w_info.get('task-succeeded', 0))
+
+            TASKS_WORKER.labels(**common, status='processed').set(w_info.get('processed', 0))
+            TASKS_WORKER.labels(**common, status='active').set(w_info.get('active', 0))
+
             if w_info['status']:
                 online += 1
             else:
                 offline += 1
+
         WORKERS.labels(flower=self.flower_host, status='online').set(online)
         WORKERS.labels(flower=self.flower_host, status='offline').set(offline)

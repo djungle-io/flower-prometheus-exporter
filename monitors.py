@@ -10,6 +10,11 @@ TASKS_QUEUE = prometheus_client.Gauge(
     'Number of tasks per queue',
     ['flower', 'queue']
 )
+WORKERS = prometheus_client.Gauge(
+    'celery_workers',
+    'Number of alive workers',
+    ['flower', 'status']
+)
 
 
 class MonitorThread(threading.Thread):
@@ -67,3 +72,25 @@ class QueueMonitorThread(MonitorThread):
     def convert_data_to_prometheus(self, data):
         for q_info in data.get('active_queues', []):
             TASKS_QUEUE.labels(flower=self.flower_host, queue=q_info['name']).set(q_info['messages'])
+
+
+class WorkerMonitorThread(MonitorThread):
+    def setup_metrics(self):
+        logging.info("Setting metrics up")
+        for metric in WORKERS.collect():
+            for sample in metric.samples:
+                WORKERS.labels(**sample[1]).set(0)
+
+    @property
+    def endpoint(self):
+        return self.flower_host + '/dashboard?json=1'
+
+    def convert_data_to_prometheus(self, data):
+        online, offline = 0, 0
+        for w_info in data.get('data', []):
+            if w_info['status']:
+                online += 1
+            else:
+                offline += 1
+        WORKERS.labels(flower=self.flower_host, status='online').set(online)
+        WORKERS.labels(flower=self.flower_host, status='offline').set(offline)

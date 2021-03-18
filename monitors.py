@@ -23,10 +23,7 @@ class MonitorThread(threading.Thread):
         super().__init__(*args, **kwargs)
 
     def setup_metrics(self):
-        logging.info("Setting metrics up")
-        for metric in TASKS_QUEUE.collect():
-            for sample in metric.samples:
-                TASKS_QUEUE.labels(**sample[1]).set(0)
+        raise NotImplementedError
 
     def get_metrics(self):
         while True:
@@ -57,6 +54,12 @@ class MonitorThread(threading.Thread):
 
 
 class QueueMonitorThread(MonitorThread):
+    def setup_metrics(self):
+        logging.info("Setting metrics up")
+        for metric in TASKS_QUEUE.collect():
+            for sample in metric.samples:
+                TASKS_QUEUE.labels(**sample[1]).set(0)
+
     @property
     def endpoint(self):
         return self.flower_host + '/api/queues/length'

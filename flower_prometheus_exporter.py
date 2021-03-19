@@ -6,12 +6,13 @@ import sys
 
 import prometheus_client
 
-from monitors import QueueMonitorThread
+from monitors import QueueMonitorThread, WorkerMonitorThread
 
 LOG_FORMAT = '[%(asctime)s: %(levelname)s/%(name)s] - %(message)s'
 
 DEFAULT_ADDR = os.environ.get('DEFAULT_ADDR', '0.0.0.0:8888')
 FLOWER_HOSTS_LIST = os.environ.get('FLOWER_HOSTS_LIST', 'http://127.0.0.1:5555').split()
+MONITORS = [QueueMonitorThread, WorkerMonitorThread]
 
 
 def main():
@@ -30,10 +31,11 @@ def setup_monitoring_threads(opts):
     threads = []
     logging.debug(f"Running {len(opts.flower_addr)} monitoring threads.")
     for flower_addr in opts.flower_addr:
-        t = QueueMonitorThread(flower_addr)
-        t.daemon = True
-        t.start()
-        threads.append(t)
+        for monitor in MONITORS:
+            t = monitor(flower_addr)
+            t.daemon = True
+            t.start()
+            threads.append(t)
     return threads
 
 

@@ -42,7 +42,8 @@ class MonitorThread(threading.Thread):
                 data = requests.get(self.endpoint)
             except requests.exceptions.ConnectionError as e:
                 self.log.error(f'Error receiving data from {self.flower_host} - {e}')
-                return
+                time.sleep(5)
+                continue
             if data.status_code != 200:
                 self.log.error(f'Error receiving data from {self.flower_host}. '
                                f'Host responded with HTTP {data.status_code}')
